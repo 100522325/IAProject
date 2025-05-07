@@ -3,7 +3,7 @@ import numpy as np
 from Location import Location
 from Boundaries import Boundaries
 from Radar import Radar
-from tqdm import tqdm
+from tqdm import    tqdm
 
 # Constant that avoids setting cells to have an associated cost of zero
 EPSILON = 1e-4

@@ -31,11 +31,73 @@ def build_graph(detection_map: np.array, tolerance: np.float32) -> nx.DiGraph:
     #   -> Go left
     #   -> Go right
     # Not every point has always 4 possible neighbors
-    ...
+
+    # Create a directed graph
+    directed_graph = nx.DiGraph()
+
+    # Get dimensions of the detection map
+    height, width = detection_map.shape
+
+    # Add all nodes to the graph
+    for i in range(height):
+        for j in range(width):
+            # Create a string identifier for the node: "(i, j)"
+            node_id = f"({i}, {j})"
+            # Add the node to the graph
+            directed_graph.add_node(node_id)
+
+    # Add edges between adjacent nodes, considering the tolerance
+    for i in range(height):
+        for j in range(width):
+            current_node = f"({i}, {j})"
+
+            # Define the possible neighbor coordinates (up, down, left, right)
+            neighbors = [(i-1, j), (i+1, j), (i, j-1), (i, j+1)]
+
+            # Check each potential neighbor
+            for i_neighbor, j_neighbor in neighbors:
+                # Skip if the neighbor is outside the boundaries
+                if i_neighbor < 0 or i_neighbor >= height or j_neighbor < 0 or j_neighbor >= width:
+                    continue
+
+                # Get the detection probability of the destination cell
+                detection_prob = detection_map[i_neighbor, j_neighbor]
+
+                # Skip if the detection probability exceeds the tolerance
+                if detection_prob > tolerance:
+                    continue
+
+                # Add the edge with the detection probability as the weight
+                neighbor_node = f"({i_neighbor}, {j_neighbor})"
+                directed_graph.add_edge(current_node, neighbor_node, weight=detection_prob)
+
+
+    return directed_graph
+
 
 def discretize_coords(high_level_plan: np.array, boundaries: Boundaries, map_width: np.int32, map_height: np.int32) -> np.array:
-    """ Converts coordiantes from (lat, lon) into (x, y) """
-    ...
+    """Converts coordinates from (lat, lon) into (i, j) """
+    # Get the dimensions of the boundaries
+    lat_range = boundaries.max_lat - boundaries.min_lat
+    lon_range = boundaries.max_lon - boundaries.min_lon
+
+    # Convert each coordinate pair to discrete indices
+    discrete_map = []
+    for coord in high_level_plan:
+        lat, lon = coord
+
+        # Calculate the corresponding indices
+        i = int(((lat - boundaries.min_lat) / lat_range) * (map_height - 1))
+        j = int(((lon - boundaries.min_lon) / lon_range) * (map_width - 1))
+
+        # Ensure we're within bounds
+        i = max(0, min(i, map_height - 1))
+        j = max(0, min(j, map_width - 1))
+
+        discrete_map.append((i, j))
+
+    #We create array here because numpy doesn't modify arrays but create new ones.
+    return np.array(discrete_map)
 
 def path_finding(G: nx.DiGraph,
                  heuristic_function,
