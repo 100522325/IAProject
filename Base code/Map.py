@@ -51,7 +51,38 @@ class Map:
         for i in range(len(self.radars)):
             locations[i] = self.radars[i].location.to_numpy()
         return locations
-    
+
     def compute_detection_map(self) -> np.array:
         """ Computes the detection map for each coordinate in the map (with all the radars) """
-        ...
+        # Create an empty detection map
+        detection_map = np.zeros(shape=(self.height, self.width), dtype=np.float32)
+
+        # Create arrays with the latitude and longitude values for each cell in the grid
+        lat_values = np.linspace(start=self.boundaries.min_lat, stop=self.boundaries.max_lat, num=self.height)
+        lon_values = np.linspace(start=self.boundaries.min_lon, stop=self.boundaries.max_lon, num=self.width)
+
+        # For each cell in the map
+        for i in tqdm(range(self.height), desc="Computing detection map"):  # Using tqdm for progress bar
+            for j in range(self.width):
+                # Get the latitude and longitude of the current cell
+                current_lat = lat_values[i]
+                current_lon = lon_values[j]
+
+                # Calculate the detection level for each radar and keep the maximum value
+                max_detection = 0.0
+                for radar in self.radars:
+                    detection_level = radar.compute_detection_level(latitude=current_lat, longitude=current_lon)
+                    max_detection = max(max_detection, detection_level)
+
+                # Assign the maximum detection value to the cell
+                detection_map[i, j] = max_detection
+
+        # Scale the detection map using min-max scaling with epsilon
+        if np.max(detection_map) - np.min(detection_map) > 0:  # Avoid division by zero
+            detection_map = (detection_map - np.min(detection_map)) / (
+                        np.max(detection_map) - np.min(detection_map)) * (1 - EPSILON) + EPSILON
+        else:
+            # If all values are the same, set them to epsilon
+            detection_map.fill(EPSILON)
+
+        return detection_map
