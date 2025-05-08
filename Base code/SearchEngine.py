@@ -7,19 +7,32 @@ from Map import EPSILON
 # Number of nodes expanded in the heuristic search (stored in a global variable to be updated from the heuristic functions)
 NODES_EXPANDED = 0
 
+
 def h1(current_node, objective_node) -> np.float32:
-    """ First heuristic to implement """
+    """
+    Heuristic 1: Manhattan Distance with Minimum Cost (MDMC)
+    Estimates cost assuming Manhattan distance with minimum cost per step (EPSILON)
+    """
     global NODES_EXPANDED
-    h = 0
-    ...
+    # Parse current and objective node coordinates from string format "(i, j)"
+    current_coords = eval(current_node)
+    objective_coords = eval(objective_node)
+
+    # Calculate Manhattan distance: |r_curr - r_goal| + |c_curr - c_goal|
+    manhattan_distance = abs(current_coords[0] - objective_coords[0]) + abs(current_coords[1] - objective_coords[1])
+
+    # Multiply by minimum cost (EPSILON)
+    h = manhattan_distance * EPSILON
+
     NODES_EXPANDED += 1
     return h
-
 def h2(current_node, objective_node) -> np.float32:
-    """ Second heuristic to implement """
+    """
+    Heuristic 0: Zero Heuristic
+    Always returns 0 regardless of current and goal position
+    """
     global NODES_EXPANDED
-    h = 0
-    ...
+    h = 0.0
     NODES_EXPANDED += 1
     return h
 
@@ -107,8 +120,74 @@ def path_finding(G: nx.DiGraph,
                  map_width: np.int32,
                  map_height: np.int32) -> tuple:
     """ Implementation of the main searching / path finding algorithm """
-    ...
+    # Reset the global counter for nodes expanded
+    global NODES_EXPANDED
+    NODES_EXPANDED = 0
+
+    # Convert the POI coordinates from (lat, lon) to grid coordinates (i, j)
+    discrete_locations = discretize_coords(
+        high_level_plan=locations,
+        boundaries=boundaries,
+        map_width=map_width,
+        map_height=map_height
+    )
+
+    # Create a container for the solution plan
+    solution_plan = []
+
+    # Set the initial POI as the starting point
+    current_index = initial_location_index
+
+    # Visit all POIs in sequence (high-level planning)
+    num_locations = len(discrete_locations)
+    for i in range(num_locations):
+        # Get the next location index (circular if needed)
+        next_index = (current_index + 1) % num_locations
+
+        # Get the grid coordinates for current and next POIs
+        current_point = discrete_locations[current_index]
+        next_point = discrete_locations[next_index]
+
+        # Convert to node IDs used in the graph
+        source = f"({current_point[0]}, {current_point[1]})"
+        target = f"({next_point[0]}, {next_point[1]})"
+
+        try:
+            # Use A* algorithm from networkx to find the path
+            path = nx.astar_path(
+                G=G,
+                source=source,
+                target=target,
+                heuristic=heuristic_function,
+                weight='weight'
+            )
+
+            # Add the found path to the solution
+            solution_plan.append(path)
+
+            # Update current index for next iteration
+            current_index = next_index
+
+        except nx.NetworkXNoPath:
+            # Handle case where no path exists
+            print(f"No path found between {source} and {target}. Check tolerance value or map configuration.")
+            return [], NODES_EXPANDED
+
+    return solution_plan, NODES_EXPANDED
 
 def compute_path_cost(G: nx.DiGraph, solution_plan: list) -> np.float32:
     """ Computes the total cost of the whole planning solution """
-    ...
+    total_cost = 0.0
+
+    # Iterate through each segment of the plan
+    for path in solution_plan:
+        # Calculate the cost of each segment by summing edge weights
+        for i in range(len(path) - 1):
+            source = path[i]
+            target = path[i + 1]
+
+            # Get the weight of the edge (detection probability)
+            edge_weight = G.edges[source, target]['weight']
+            total_cost += edge_weight
+
+    return total_cost
