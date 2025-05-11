@@ -8,6 +8,7 @@ from Map import Map
 from Boundaries import Boundaries
 from SearchEngine import build_graph, path_finding, compute_path_cost, h1, h2
 
+
 def plot_radar_locations(boundaries: Boundaries, radar_locations: np.array) -> None:
     """ Auxiliary function for plotting the radar locations """
     plt.figure(figsize=(8, 8))
@@ -25,7 +26,8 @@ def plot_radar_locations(boundaries: Boundaries, radar_locations: np.array) -> N
     plt.show()
     return
 
-def plot_detection_fields(detection_map: np.array, bicubic: bool=True) -> None:
+
+def plot_detection_fields(detection_map: np.array, bicubic: bool = True) -> None:
     """ Auxiliary function for plotting the detection fields """
     plt.figure(figsize=(8, 8))
     plt.title("Radar detection fields")
@@ -34,10 +36,20 @@ def plot_detection_fields(detection_map: np.array, bicubic: bool=True) -> None:
     plt.show()
     return
 
-def plot_solution(detection_map: np.array, solution_plan: list, bicubic: bool=True) -> None:
+
+def plot_solution(detection_map: np.array, solution_plan: list, bicubic: bool = True) -> None:
     """ Auxiliary function for plotting the solution plan with markers in each POI """
-    plt.figure(figsize=(8,8))
+    plt.figure(figsize=(8, 8))
     plt.title("Solution plan")
+
+    # Check if solution_plan is empty or None
+    if not solution_plan:
+        plt.imshow(X=detection_map, cmap='Greens', interpolation='bicubic' if bicubic else None)
+        plt.colorbar(label='Detection values')
+        plt.title("No valid solution path found")
+        plt.show()
+        return
+
     for i in range(len(solution_plan)):
         start_point = eval(solution_plan[i][0])
         plt.scatter(start_point[1], start_point[0], c='black', marker='*', zorder=2)
@@ -45,21 +57,25 @@ def plot_solution(detection_map: np.array, solution_plan: list, bicubic: bool=Tr
         for j in range(len(path_array)):
             path_array[j] = eval(solution_plan[i][j])
         plt.plot(path_array[:, 1], path_array[:, 0], zorder=1)
-    final_point = eval(solution_plan[-1][-1])
-    plt.scatter(final_point[1], final_point[0], c='black', marker='*', label=f'Waypoints', zorder=2)
+
+    if solution_plan and solution_plan[-1]:  # Check if there's a valid final point
+        final_point = eval(solution_plan[-1][-1])
+        plt.scatter(final_point[1], final_point[0], c='black', marker='*', label=f'Waypoints', zorder=2)
+
     im = plt.imshow(X=detection_map, cmap='Greens', interpolation='bicubic' if bicubic else None)
     plt.colorbar(im, label='Detection values')
     plt.legend()
     plt.show()
     return
 
+
 def parse_args() -> dict:
     """ Parses the main arguments of the program and returns them stored in a dictionary """
-    #We have changed this two following lines, because we were having some directory errors with the json file
+    # We have changed this two following lines, because we were having some directory errors with the json file
     script_dir = os.path.dirname(os.path.abspath(__file__))
     json_path = os.path.join(script_dir, 'scenarios.json')
-    scenario_json        = sys.argv[1]
-    tolerance            = float(sys.argv[2])
+    scenario_json = sys.argv[1]
+    tolerance = float(sys.argv[2])
     execution_parameters = {}
     with open(json_path, 'r', encoding='utf-8') as file:
         data = json.load(file)
@@ -71,9 +87,9 @@ def parse_args() -> dict:
     execution_parameters["tolerance"] = tolerance
     return execution_parameters
 
+
 # System's main function
 def main() -> None:
-
     # Parse the input parameters (arguments) of the program (current execution)
     execution_parameters = parse_args()
 
@@ -85,12 +101,12 @@ def main() -> None:
                             min_lat=execution_parameters['min_lat'],
                             max_lon=execution_parameters['max_lon'],
                             min_lon=execution_parameters['min_lon'])
-    
+
     # Define the map with its corresponding boundaries and coordinates
     M = Map(boundaries=boundaries,
             height=execution_parameters['H'],
             width=execution_parameters['W'])
-    
+
     # Generate random radars
     n_radars = execution_parameters['n_radars']
     M.generate_radars(n_radars=n_radars)
@@ -113,13 +129,13 @@ def main() -> None:
 
     # Compute the solution
     solution_plan, nodes_expanded = path_finding(G=G,
-                                 heuristic_function=h2,
-                                 locations=POIs, 
-                                 initial_location_index=0,
-                                 boundaries=boundaries,
-                                 map_width=M.width,
-                                 map_height=M.height)
-    
+                                                 heuristic_function=h1,
+                                                 locations=POIs,
+                                                 initial_location_index=0,
+                                                 boundaries=boundaries,
+                                                 map_width=M.width,
+                                                 map_height=M.height)
+
     # Compute the solution cost
     path_cost = compute_path_cost(G=G, solution_plan=solution_plan)
 
@@ -129,6 +145,7 @@ def main() -> None:
 
     # Plot the solution
     plot_solution(detection_map=detection_map, solution_plan=solution_plan)
+
 
 if __name__ == '__main__':
     main()
